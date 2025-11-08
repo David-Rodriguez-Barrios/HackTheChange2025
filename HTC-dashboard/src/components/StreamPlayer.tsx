@@ -6,7 +6,10 @@ interface StreamPlayerProps {
   backendUrl?: string;
 }
 
-function StreamPlayer({ streamId = 'stream-1', backendUrl = 'http://localhost:3000' }: StreamPlayerProps) {
+function StreamPlayer({ 
+  streamId = 'stream-1', 
+  backendUrl = import.meta.env.VITE_BACKEND_URL 
+}: StreamPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
