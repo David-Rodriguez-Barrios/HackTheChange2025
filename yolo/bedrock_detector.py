@@ -176,7 +176,7 @@ CRITICAL: Weapons, violence, panic"""
             # Send to Haiku
             response = self.bedrock.invoke_model(
                 modelId=self.model_id,
-                body=json.dumps(request_body)
+                body=json.dumps(request_body).encode('utf-8')
             )
             
             response_body = json.loads(response['body'].read())
