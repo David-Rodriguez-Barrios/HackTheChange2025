@@ -11,8 +11,13 @@ import httpx
 from dotenv import load_dotenv
 import asyncio
 from collections import deque
-from .db_queries import get_stream_by_id, create_stream
-from .neon_db import init_db_pool, close_db_pool
+from .db_queries import (
+    get_stream_by_id,
+    create_stream,
+    get_all_streams,
+    stream_exists_by_url,
+    reset_stream_store,
+)
 
 load_dotenv()
 
@@ -22,13 +27,45 @@ webcam_stream_active = False
 webcam_stream_lock = asyncio.Lock()
 
 
+async def scan_videos_folder():
+    """Scan the videos folder and automatically create streams for video files"""
+    videos_dir = Path(__file__).parent.parent / "videos"
+    if not videos_dir.exists():
+        videos_dir.mkdir(parents=True, exist_ok=True)
+        return
+    
+    # Supported video extensions
+    video_extensions = {'.mp4', '.webm', '.ogg', '.mov', '.avi', '.mkv'}
+    
+    created_count = 0
+    for file_path in videos_dir.iterdir():
+        if file_path.is_file() and file_path.suffix.lower() in video_extensions:
+            # Create URL path for the video file
+            video_url = f"/videos/{file_path.name}"
+            
+            # Check if stream already exists
+            try:
+                exists = await stream_exists_by_url(video_url)
+                if not exists:
+                    await create_stream(video_url)
+                    created_count += 1
+            except Exception as e:
+                print(f"Error processing {file_path.name}: {e}")
+                import traceback
+                traceback.print_exc()
+    
+    if created_count > 0:
+        print(f"Created {created_count} new stream(s) from videos folder")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    await init_db_pool()
+    await reset_stream_store()
+    await scan_videos_folder()
     yield
     # Shutdown
-    await close_db_pool()
+    await reset_stream_store()
 
 
 app = FastAPI(lifespan=lifespan)
@@ -49,6 +86,30 @@ class StreamCreateRequest(BaseModel):
     url: str
 
 
+@app.get("/api/streams")
+async def list_streams_endpoint():
+    """Get all streams"""
+    try:
+        streams = await get_all_streams()
+        return {"streams": streams}
+    except Exception:
+        raise HTTPException(status_code=500, detail="Error retrieving streams")
+
+
+@app.post("/api/streams/scan")
+async def scan_videos_endpoint():
+    """Manually trigger a scan of the videos folder to add new video files as streams"""
+    try:
+        await scan_videos_folder()
+        streams = await get_all_streams()
+        return {"message": "Videos folder scanned", "streams": streams, "count": len(streams)}
+    except Exception as e:
+        print(f"Error scanning videos folder: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error scanning videos folder: {str(e)}")
+
+
 @app.post("/api/streams")
 async def create_stream_endpoint(request: StreamCreateRequest):
     """Create a new stream"""
@@ -64,8 +125,7 @@ async def create_stream_endpoint(request: StreamCreateRequest):
         }
     except HTTPException:
         raise
-    except Exception as error:
-        print(f"Error creating stream: {error}")
+    except Exception:
         raise HTTPException(status_code=500, detail="Error creating stream")
 
 
@@ -176,9 +236,29 @@ async def stream_proxy_endpoint(streamId: Optional[str] = Query(None)):
     if not stream:
         raise HTTPException(status_code=404, detail="Stream ID Not found")
     
-    external_url = stream["url"]
+    stream_url = stream["url"]
     
-    # Stream the external content
+    # Check if it's a local video file (starts with /videos/)
+    if stream_url.startswith("/videos/"):
+        video_path = Path(__file__).parent.parent / "videos" / stream_url.replace("/videos/", "")
+        if video_path.exists():
+            return FileResponse(
+                str(video_path),
+                media_type="video/mp4",
+                headers={
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET, OPTIONS",
+                    "Access-Control-Allow-Headers": "Content-Type",
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    "Pragma": "no-cache",
+                    "Expires": "0",
+                }
+            )
+        else:
+            raise HTTPException(status_code=404, detail="Video file not found")
+    
+    # External URL - stream the external content
+    external_url = stream_url
     async def generate():
         async with httpx.AsyncClient(timeout=30.0) as client:
             try:
@@ -237,6 +317,11 @@ async def stream_options():
         }
     )
 
+
+# Mount videos folder to serve video files
+videos_dir = Path(__file__).parent.parent / "videos"
+if videos_dir.exists():
+    app.mount("/videos", StaticFiles(directory=str(videos_dir)), name="videos")
 
 # Serve static files from frontend dist
 frontend_path = Path(__file__).parent.parent.parent / "HTC-dashboard" / "dist"

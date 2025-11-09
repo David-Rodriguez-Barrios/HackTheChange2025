@@ -1,16 +1,19 @@
-import { useState } from "react"
 import { AlertsProvider } from "../contexts/AlertsProvider"
 import { PriorityAlerts } from "../components/PriorityAlerts"
 import { AllStreams } from "../components/AllStreams"
+import "./LandingPage.css"
 export function LandingPage() {
 
   return (
-    <>
-      {/* Insert the Videos Component Here afterwards  */}
-      <AllStreams />
-      <AlertsProvider>
-        <PriorityAlerts />
-      </AlertsProvider>
-    </>
+    <div className="landing-layout">
+      <div className="landing-main">
+        <AllStreams />
+      </div>
+      <div className="landing-sidebar">
+        <AlertsProvider>
+          <PriorityAlerts />
+        </AlertsProvider>
+      </div>
+    </div>
   )
 }
