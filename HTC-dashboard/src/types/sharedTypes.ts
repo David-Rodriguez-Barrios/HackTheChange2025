@@ -1,9 +1,10 @@
 export type PriorityAlert = {
+  id: string;
   alertName: string;
   level: AlertLevelType
-  url: string;
-  location: string;
-  time: Date
+  url?: string;
+  location?: string;
+  time?: Date;
 }
 
 export const AlertLevel = {

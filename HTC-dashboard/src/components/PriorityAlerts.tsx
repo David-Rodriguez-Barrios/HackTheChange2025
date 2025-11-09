@@ -34,9 +34,9 @@ export function PriorityAlerts() {
       </div>
       <div className="priority-alerts-scroll">
         {alertsArray.length > 0 ? (
-          alertsArray.map((alert, idx) => (
+          alertsArray.map((alert) => (
             <PriorityAlertCard
-              key={idx}
+              key={alert.id}
               alertName={alert.alertName}
               level={alert.level}
               location={alert.location}

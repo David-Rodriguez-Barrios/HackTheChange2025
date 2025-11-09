@@ -14,18 +14,16 @@ import threading
 from io import BytesIO
 from PIL import Image
 import boto3
+import httpx
 
 # Load environment variables from .env file
 try:
     from dotenv import load_dotenv
     load_dotenv()  # Loads .env file from current directory
-    print("✅ Loaded .env file")
 except ImportError:
-    print("ℹ️ python-dotenv not installed. Install with: pip install python-dotenv")
-    print("ℹ️ Using system environment variables instead")
-except Exception as e:
-    print(f"⚠️ Could not load .env file: {e}")
-    print("ℹ️ Using system environment variables instead")
+    pass
+except Exception:
+    pass
 
 class HaikuIncidentDetector:
     def __init__(self, region='us-east-1'):
@@ -34,16 +32,8 @@ class HaikuIncidentDetector:
         aws_secret_key = os.getenv('AWS_SECRET_ACCESS_KEY')
         aws_region = os.getenv('AWS_DEFAULT_REGION', region)
         
-        if aws_access_key and aws_secret_key:
-            print(f"✅ Found AWS credentials (Access Key: {aws_access_key[:8]}...)")
-            print(f"✅ Using region: {aws_region}")
-        else:
-            print("❌ AWS credentials not found!")
-            print("📝 Create a .env file in this directory with:")
-            print("   AWS_ACCESS_KEY_ID=your_access_key_here")
-            print("   AWS_SECRET_ACCESS_KEY=your_secret_key_here")
-            print("   AWS_DEFAULT_REGION=us-east-1")
-            print("💡 Or run: aws configure")
+        if not aws_access_key or not aws_secret_key:
+            print("AWS credentials not found!")
             sys.exit(1)
         
         # Configure AWS Bedrock client
@@ -56,11 +46,8 @@ class HaikuIncidentDetector:
             # Use Claude 3 Haiku - much cheaper and faster!
             self.model_id = 'anthropic.claude-3-haiku-20240307-v1:0'
             
-            print("✅ Connected to AWS Bedrock (Claude 3 Haiku)")
-            
         except Exception as e:
-            print("❌ Failed to connect to AWS Bedrock")
-            print(f"Error: {e}")
+            print(f"Failed to connect to AWS Bedrock: {e}")
             sys.exit(1)
         
         # Optimized prompt for Haiku (shorter = cheaper)
@@ -76,6 +63,15 @@ CRITICAL: Weapons, violence, panic"""
 
         # Centralized timing configuration
         self.analyze_interval = 3  # Analyze every 3 seconds (CONFIGURABLE HERE)
+
+        # Backend alert endpoint 
+        backend_base = os.getenv('BACKEND_ALERT_URL') or os.getenv('BACKEND_URL')
+        self.backend_alert_endpoint = None
+        if backend_base:
+            self.backend_alert_endpoint = backend_base.rstrip('/') + '/api/alerts'
+        self.camera_location = os.getenv('CAMERA_LOCATION', 'Unknown Location')
+        self.stream_id = os.getenv('STREAM_ID')
+        self.last_alert_signature = None
 
         # Thread-safe variables for async analysis
         self.current_danger = 'NORMAL'
@@ -114,17 +110,10 @@ CRITICAL: Weapons, violence, panic"""
                 self.current_danger = danger_level
                 self.current_reason = reason
                 self.analyzing = False
+
+            self._handle_alert_dispatch(danger_level, reason, frame_time)
                 
-            # Print results
-            if danger_level == 'CRITICAL':
-                print(f"🔴 CRITICAL at {frame_time:.1f}s: {reason}")
-            elif danger_level == 'DANGEROUS':
-                print(f"🟠 DANGEROUS at {frame_time:.1f}s: {reason}")
-            else:
-                print(f"🟢 NORMAL at {frame_time:.1f}s: {reason}")
-                
-        except Exception as e:
-            print(f"Background analysis error: {e}")
+        except Exception:
             with self.analysis_lock:
                 self.analyzing = False
 
@@ -200,8 +189,7 @@ CRITICAL: Weapons, violence, panic"""
             except json.JSONDecodeError:
                 return 'NORMAL', 'Parse error'
                 
-        except Exception as e:
-            print(f"Analysis error: {e}")
+        except Exception:
             return 'NORMAL', 'API error'
 
     def get_color(self, danger_level):
@@ -213,6 +201,43 @@ CRITICAL: Weapons, violence, panic"""
         }
         return colors.get(danger_level, (0, 255, 0))
 
+    def _handle_alert_dispatch(self, danger_level, reason, frame_time):
+        """Send alerts to backend when danger level escalates."""
+        if danger_level == 'NORMAL':
+            self.last_alert_signature = None
+            return
+        
+        if not self.backend_alert_endpoint:
+            return
+        
+        normalized_reason = (reason or '').strip() or f"{danger_level.title()} situation detected"
+        alert_level = 'HIGH' if danger_level == 'CRITICAL' else 'MEDIUM'
+        signature = (danger_level, normalized_reason)
+        
+        if signature == self.last_alert_signature:
+            return
+        
+        payload = {
+            "alertName": normalized_reason,
+            "level": alert_level,
+            "location": self.camera_location,
+            "source": "LLM",
+            "metadata": {
+                "danger_level": danger_level,
+                "frame_time_seconds": frame_time
+            }
+        }
+        
+        if self.stream_id:
+            payload["streamId"] = self.stream_id
+        
+        try:
+            response = httpx.post(self.backend_alert_endpoint, json=payload, timeout=5.0)
+            response.raise_for_status()
+            self.last_alert_signature = signature
+        except Exception:
+            pass
+
     def process_video(self, video_path, analyze_interval=None):
         """Process video with non-blocking analysis and proper frame timing"""
         # Use class variable if no override provided
@@ -222,22 +247,13 @@ CRITICAL: Weapons, violence, panic"""
         cap = cv2.VideoCapture(video_path)
         
         if not cap.isOpened():
-            print(f"❌ Cannot open video: {video_path}")
             return
-        
-        print(f"🎬 Analyzing video with Haiku: {video_path}")
-        print(f"💰 Cost-optimized: {analyze_interval}-second intervals, lower quality")
-        print("🎥 Smooth playback: Non-blocking analysis")
-        print("Press 'q' to quit")
-        print("-" * 50)
         
         frame_count = 0
         fps = cap.get(cv2.CAP_PROP_FPS) or 30
         
         # Calculate proper frame delay for timing
         frame_delay = int(1000 / fps)  # Convert to milliseconds
-        print(f"🎬 Video FPS: {fps}, Frame delay: {frame_delay}ms")
-        print(f"🔍 Analysis interval: {analyze_interval} seconds")
         
         alerts = {'NORMAL': 0, 'DANGEROUS': 0, 'CRITICAL': 0}
         api_calls = 0
@@ -261,7 +277,6 @@ CRITICAL: Weapons, violence, panic"""
                 if self.start_analysis(frame, current_time):
                     api_calls += 1
                     last_analysis_time = current_time
-                    print(f"⏳ Started analysis {api_calls} at {current_time:.1f}s (interval: {time_since_last_analysis:.1f}s)")
             
             # Get current results (thread-safe)
             with self.analysis_lock:
@@ -305,55 +320,14 @@ CRITICAL: Weapons, violence, panic"""
                 break
         
         # Wait for any pending analysis to complete
-        print("\n⏳ Waiting for final analysis to complete...")
         while self.analyzing:
             time.sleep(0.1)
-        
-        # Cost summary
-        elapsed_time = time.time() - start_time
-        estimated_cost = api_calls * 0.00025  # ~$0.25 per 1000 calls
-        
-        print(f"\n💰 COST SUMMARY")
-        print(f"API calls made: {api_calls}")
-        print(f"Estimated cost: ${estimated_cost:.4f}")
-        print(f"Processing time: {elapsed_time:.1f}s")
-        print(f"Analysis interval: {analyze_interval}s")
-        print(f"Video played smoothly: ✅")
-        
-        total = sum(alerts.values())
-        if total > 0:
-            print(f"\n📊 RESULTS")
-            print(f"Normal: {alerts['NORMAL']} ({alerts['NORMAL']/total*100:.1f}%)")
-            print(f"Dangerous: {alerts['DANGEROUS']} ({alerts['DANGEROUS']/total*100:.1f}%)")
-            print(f"Critical: {alerts['CRITICAL']} ({alerts['CRITICAL']/total*100:.1f}%)")
         
         cap.release()
         cv2.destroyAllWindows()
 
 def main():
     if len(sys.argv) < 2:
-        print("🚨 Haiku Transit Incident Detector (Budget Version)")
-        print("Usage:")
-        print("  python haiku_detector_fixed.py video.mp4")
-        print("  python haiku_detector_fixed.py webcam")
-        print()
-        print("🔧 Setup (.env file method):")
-        print("  1. Create .env file in this directory:")
-        print("     AWS_ACCESS_KEY_ID=your_access_key_here")
-        print("     AWS_SECRET_ACCESS_KEY=your_secret_key_here") 
-        print("     AWS_DEFAULT_REGION=us-east-1")
-        print("  2. Install: pip install python-dotenv")
-        print("  3. Run: python haiku_detector_fixed.py video.mp4")
-        print()
-        print("🔧 Alternative setup:")
-        print("  - Run: aws configure")
-        print("  - Or set environment variables")
-        print()
-        print("💰 Cost optimization:")
-        print("  - Uses Claude 3 Haiku (~10x cheaper)")
-        print("  - 3-second intervals (vs 5-second in Sonnet)")
-        print("  - Lower image quality")
-        print("  - Estimated: $0.25 per 1000 frames")
         return
     
     detector = HaikuIncidentDetector()
