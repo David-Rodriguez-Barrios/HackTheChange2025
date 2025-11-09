@@ -60,6 +60,7 @@ curl -X POST http://localhost:3000/api/streams \
   -H "Content-Type: application/json" \
   -d '{"url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"}'
 ```
+You may change the source url of the videos with other ones that are publicly available and downloadable. 
 
 Open [localhost:5173](http://localhost:5173)
  — your video stream should now appear on the dashboard!
