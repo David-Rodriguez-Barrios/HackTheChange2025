@@ -5,15 +5,15 @@ import "./LandingPage.css"
 export function LandingPage() {
 
   return (
-    <div className="landing-layout">
-      <div className="landing-main">
-        <AllStreams />
-      </div>
-      <div className="landing-sidebar">
-        <AlertsProvider>
+    <AlertsProvider>
+      <div className="landing-layout">
+        <div className="landing-main">
+          <AllStreams />
+        </div>
+        <div className="landing-sidebar">
           <PriorityAlerts />
-        </AlertsProvider>
+        </div>
       </div>
-    </div>
+    </AlertsProvider>
   )
 }

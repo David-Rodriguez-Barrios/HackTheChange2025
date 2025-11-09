@@ -4,6 +4,14 @@ source venv/bin/activate
 pip install -r requirements.txt
 uvicorn src.server:app --reload --port 3000
 
+install ffmpeg (needed for webcam dvr):
+
+macos:
+brew install ffmpeg
+
+windows:
+choco install ffmpeg
+
 
 new terminal
 cd HTC-dashboard

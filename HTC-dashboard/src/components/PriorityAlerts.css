@@ -105,6 +105,86 @@
   display: block;
 }
 
+.stream-media-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #e0e0f5;
+  font-size: 0.85rem;
+  background: rgba(9, 11, 22, 0.55);
+  backdrop-filter: blur(6px);
+  z-index: 3;
+  pointer-events: none;
+}
+
+.stream-go-live {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 77, 77, 0.8);
+  background: rgba(184, 28, 28, 0.75);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  z-index: 4;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.stream-go-live:hover {
+  background: rgba(220, 44, 44, 0.85);
+  transform: translateY(-1px);
+}
+
+.stream-go-live:disabled {
+  opacity: 0.6;
+  cursor: default;
+  transform: none;
+}
+
+.stream-live-pill {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  background: rgba(220, 44, 44, 0.85);
+  color: #fff;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stream-live-pill::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.stream-live-inline {
+  margin-left: 8px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff;
+  background: rgba(220, 44, 44, 0.8);
+}
+
 .stream-timeline {
   display: flex;
   flex-direction: column;
@@ -232,6 +312,20 @@
   padding: 12px 12px 12px 16px;
   margin-bottom: 12px;
   transition: border 0.2s ease;
+}
+
+.priority-alert-card--interactive {
+  cursor: pointer;
+}
+
+.priority-alert-card--interactive:focus-visible {
+  outline: 2px solid rgba(76,175,80,0.7);
+  outline-offset: 2px;
+}
+
+.priority-alert-card--active {
+  border-color: rgba(76,175,80,0.55);
+  box-shadow: 0 0 0 1px rgba(76,175,80,0.25);
 }
 
 .priority-alert-card:hover {

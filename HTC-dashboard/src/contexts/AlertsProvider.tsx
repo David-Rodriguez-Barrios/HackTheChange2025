@@ -1,6 +1,6 @@
-import { type JSX, type ReactNode, useEffect, useRef, useState } from "react";
+import { type JSX, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import type { PriorityAlert, AlertLevelType } from "../types/sharedTypes";
-import { AlertsContext } from "./AlertsContext";
+import { AlertsContext, type AlertSelection } from "./AlertsContext";
 import { AlertLevel } from "../types/sharedTypes";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
@@ -8,7 +8,19 @@ const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
 export function AlertsProvider({ children }: { children: ReactNode }): JSX.Element {
 
   const [priorityAlerts, setPriorityAlerts] = useState<Map<string, PriorityAlert>>(new Map());
+  const [selectedAlert, setSelectedAlert] = useState<AlertSelection | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+
+  const selectAlert = useCallback((alertId: string | null) => {
+    if (!alertId) {
+      setSelectedAlert(null);
+      return;
+    }
+    setSelectedAlert({
+      id: alertId,
+      requestedAt: Date.now(),
+    });
+  }, []);
 
   useEffect(() => {
     const wsProtocol = BACKEND_URL.startsWith("https://") ? "wss://" : "ws://";
@@ -79,8 +91,25 @@ export function AlertsProvider({ children }: { children: ReactNode }): JSX.Eleme
     };
   }, []);
 
+  useEffect(() => {
+    if (!selectedAlert) {
+      return;
+    }
+    if (!priorityAlerts.has(selectedAlert.id)) {
+      setSelectedAlert(null);
+    }
+  }, [priorityAlerts, selectedAlert]);
+
   return (
-    <AlertsContext.Provider value={{ priorityAlerts, setPriorityAlerts }}>
+    <AlertsContext.Provider
+      value={{
+        priorityAlerts,
+        setPriorityAlerts,
+        selectedAlert,
+        selectAlert,
+        clearAlertSelection: () => setSelectedAlert(null),
+      }}
+    >
       {children}
     </AlertsContext.Provider>
   );

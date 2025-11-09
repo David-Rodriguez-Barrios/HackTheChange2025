@@ -3,7 +3,7 @@ import json
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Set
+from typing import Any, Dict, Optional, Set
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse, FileResponse
@@ -14,6 +14,9 @@ import httpx
 from dotenv import load_dotenv
 import asyncio
 from collections import deque
+import shutil
+from asyncio.subprocess import PIPE
+import signal
 import cv2
 import numpy as np
 from starlette.websockets import WebSocketState
@@ -34,8 +37,178 @@ webcam_stream_active = False
 webcam_stream_lock = asyncio.Lock()
 alert_subscribers: Set[WebSocket] = set()
 bedrock_call_lock = asyncio.Lock()
-WEBCAM_ANALYSIS_INTERVAL = max(1.0, float(os.getenv("WEBCAM_ANALYSIS_INTERVAL_SECONDS", "1")))
+WEBCAM_ANALYSIS_INTERVAL = 3.0
 detector = HaikuIncidentDetector()
+
+FFMPEG_PATH = os.getenv("FFMPEG_PATH", "ffmpeg")
+WEBCAM_HLS_SEGMENT_SECONDS = float(os.getenv("WEBCAM_HLS_SEGMENT_SECONDS", "2.0"))
+WEBCAM_HLS_MAX_SEGMENTS = int(os.getenv("WEBCAM_HLS_MAX_SEGMENTS", "0"))
+WEBCAM_HLS_TARGET_FPS = float(os.getenv("WEBCAM_HLS_TARGET_FPS", "25"))
+VIDEOS_DIR = Path(__file__).parent.parent / "videos"
+WEBCAM_HLS_DIR = VIDEOS_DIR / "webcam-hls"
+WEBCAM_PLAYLIST_PATH = "/videos/webcam-hls/index.m3u8"
+
+
+class HLSRecorder:
+    def __init__(
+        self,
+        ffmpeg_path: str,
+        output_dir: Path,
+        segment_seconds: float = 2.0,
+        max_segments: int = 0,
+        target_fps: float = 25.0,
+    ):
+        self.ffmpeg_path = ffmpeg_path
+        self.output_dir = output_dir
+        self.segment_seconds = segment_seconds
+        self.max_segments = max_segments
+        self.target_fps = target_fps
+        self.process: Optional[asyncio.subprocess.Process] = None
+        self.lock = asyncio.Lock()
+
+    async def setup(self):
+        await asyncio.to_thread(self._prepare_output_dir)
+
+    def _prepare_output_dir(self):
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        for path in self.output_dir.glob("*"):
+            if path.is_file():
+                path.unlink(missing_ok=True)
+            elif path.is_dir():
+                shutil.rmtree(path, ignore_errors=True)
+
+    async def stop(self):
+        async with self.lock:
+            await self._terminate_process()
+
+    async def write(self, frame_bytes: bytes):
+        if not frame_bytes:
+            return
+        await self._ensure_process()
+        proc = self.process
+        if not proc or proc.stdin is None:
+            return
+        try:
+            proc.stdin.write(frame_bytes)
+            await proc.stdin.drain()
+        except Exception as exc:
+            print(f"FFmpeg write error, restarting recorder: {exc}")
+            await self._restart_process()
+
+    async def _ensure_process(self):
+        async with self.lock:
+            if self.process and self.process.returncode is None:
+                return
+            await self._launch_process()
+
+    async def _restart_process(self):
+        async with self.lock:
+            await self._terminate_process()
+            await self._launch_process()
+
+    async def _launch_process(self):
+        await asyncio.to_thread(self.output_dir.mkdir, parents=True, exist_ok=True)
+        segment_filename = str(self.output_dir / "segment_%05d.ts")
+        playlist_path = str(self.output_dir / "index.m3u8")
+
+        cmd = [
+            self.ffmpeg_path,
+            "-loglevel",
+            os.getenv("FFMPEG_LOGLEVEL", "warning"),
+            "-hide_banner",
+            "-y",
+            "-f",
+            "mjpeg",
+            "-i",
+            "pipe:0",
+            "-vf",
+            f"fps={self.target_fps}",
+            "-c:v",
+            os.getenv("FFMPEG_HLS_CODEC", "libx264"),
+            "-preset",
+            os.getenv("FFMPEG_HLS_PRESET", "veryfast"),
+            "-tune",
+            "zerolatency",
+            "-pix_fmt",
+            "yuv420p",
+            "-f",
+            "hls",
+            "-hls_time",
+            str(self.segment_seconds),
+            "-hls_list_size",
+            str(self.max_segments),
+            "-hls_flags",
+            os.getenv(
+                "FFMPEG_HLS_FLAGS",
+                "independent_segments+append_list+program_date_time",
+            ),
+            "-hls_segment_filename",
+            segment_filename,
+            playlist_path,
+        ]
+
+        try:
+            self.process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdin=PIPE,
+                stdout=PIPE,
+                stderr=PIPE,
+            )
+            asyncio.create_task(self._log_errors(self.process.stderr))
+        except FileNotFoundError:
+            print("FFmpeg binary not found. Ensure ffmpeg is installed or set FFMPEG_PATH.")
+            self.process = None
+
+    async def _log_errors(self, stderr: Optional[asyncio.StreamReader]):
+        if stderr is None:
+            return
+        try:
+            while True:
+                line = await stderr.readline()
+                if not line:
+                    break
+                print(f"[ffmpeg] {line.decode(errors='ignore').strip()}")
+        except Exception:
+            pass
+
+    async def _terminate_process(self):
+        if not self.process:
+            return
+        proc = self.process
+        self.process = None
+        if proc.stdin:
+            try:
+                proc.stdin.write_eof()
+            except (AttributeError, RuntimeError, ValueError):
+                try:
+                    proc.stdin.close()
+                except Exception:
+                    pass
+            except Exception:
+                pass
+        try:
+            await asyncio.wait_for(proc.wait(), timeout=3)
+        except asyncio.TimeoutError:
+            if proc.returncode is None:
+                if hasattr(proc, "send_signal"):
+                    proc.send_signal(signal.SIGTERM)
+                try:
+                    await asyncio.wait_for(proc.wait(), timeout=3)
+                except asyncio.TimeoutError:
+                    if hasattr(proc, "kill"):
+                        proc.kill()
+                    await proc.wait()
+        except Exception:
+            pass
+
+
+hls_recorder = HLSRecorder(
+    ffmpeg_path=FFMPEG_PATH,
+    output_dir=WEBCAM_HLS_DIR,
+    segment_seconds=WEBCAM_HLS_SEGMENT_SECONDS,
+    max_segments=WEBCAM_HLS_MAX_SEGMENTS,
+    target_fps=WEBCAM_HLS_TARGET_FPS,
+)
 
 
 def decode_frame_from_bytes(frame_bytes: bytes):
@@ -79,16 +252,15 @@ async def broadcast_alert(alert: dict, include_websocket: Optional[WebSocket] = 
 
 async def scan_videos_folder():
     """Scan the videos folder and automatically create streams for video files"""
-    videos_dir = Path(__file__).parent.parent / "videos"
-    if not videos_dir.exists():
-        videos_dir.mkdir(parents=True, exist_ok=True)
+    if not VIDEOS_DIR.exists():
+        VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
         return
     
     # Supported video extensions
     video_extensions = {'.mp4', '.webm', '.ogg', '.mov', '.avi', '.mkv'}
     
     created_count = 0
-    for file_path in videos_dir.iterdir():
+    for file_path in VIDEOS_DIR.iterdir():
         if file_path.is_file() and file_path.suffix.lower() in video_extensions:
             # Create URL path for the video file
             video_url = f"/videos/{file_path.name}"
@@ -111,10 +283,12 @@ async def scan_videos_folder():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
+    await hls_recorder.setup()
     await reset_stream_store()
     await scan_videos_folder()
     yield
     # Shutdown
+    await hls_recorder.stop()
     await reset_stream_store()
 
 
@@ -136,6 +310,25 @@ class StreamCreateRequest(BaseModel):
     url: str
 
 
+def build_stream_payload(stream_id: str, url: str, playlist: Optional[str] = None) -> Dict[str, Any]:
+    if stream_id == "webcam":
+        return {
+            "id": "webcam",
+            "url": "webcam",
+            "format": "hls",
+            "live": True,
+            "playlist": WEBCAM_PLAYLIST_PATH,
+        }
+
+    return {
+        "id": stream_id,
+        "url": url,
+        "format": "hls",
+        "live": True,
+        "playlist": playlist,
+    }
+
+
 @app.get("/api/streams")
 async def list_streams_endpoint():
     """Get all streams"""
@@ -146,12 +339,33 @@ async def list_streams_endpoint():
         async with webcam_stream_lock:
             include_webcam = webcam_stream_active or len(webcam_stream_buffer) > 0
 
-        if include_webcam:
-            # Ensure webcam stream appears only once and at the beginning of the list
-            if not any(stream.get("id") == "webcam" for stream in streams):
-                streams = [{"id": "webcam", "url": "webcam"}] + streams
+        normalized_streams = []
+        webcam_present = False
+        for stream in streams:
+            stream_id = stream.get("id")
+            stream_url = stream.get("url")
+            if stream_id is None or stream_url is None:
+                continue
+            payload = build_stream_payload(
+                stream_id=stream_id,
+                url=stream_url,
+                playlist=stream.get("playlist"),
+            )
+            if stream_id == "webcam":
+                webcam_present = True
+            normalized_streams.append(payload)
 
-        return {"streams": streams}
+        if include_webcam and not webcam_present:
+            normalized_streams.insert(
+                0,
+                build_stream_payload(
+                    stream_id="webcam",
+                    url="webcam",
+                    playlist=WEBCAM_PLAYLIST_PATH,
+                ),
+            )
+
+        return {"streams": normalized_streams}
     except Exception:
         raise HTTPException(status_code=500, detail="Error retrieving streams")
 
@@ -180,8 +394,11 @@ async def create_stream_endpoint(request: StreamCreateRequest):
         stream_config = await create_stream(request.url)
         
         return {
-            "id": stream_config["id"],
-            "url": stream_config["url"],
+            **build_stream_payload(
+                stream_id=stream_config["id"],
+                url=stream_config["url"],
+                playlist=stream_config.get("playlist"),
+            )
         }
     except HTTPException:
         raise
@@ -193,15 +410,19 @@ async def create_stream_endpoint(request: StreamCreateRequest):
 async def get_stream_endpoint(stream_id: str):
     """Get a stream by ID"""
     try:
+        if stream_id == "webcam":
+            return build_stream_payload(stream_id="webcam", url="webcam", playlist=WEBCAM_PLAYLIST_PATH)
+
         stream = await get_stream_by_id(stream_id)
         
         if not stream:
             raise HTTPException(status_code=404, detail="Stream ID Not found")
         
-        return {
-            "id": stream["id"],
-            "url": stream["url"],
-        }
+        return build_stream_payload(
+            stream_id=stream["id"],
+            url=stream["url"],
+            playlist=stream.get("playlist"),
+        )
     except HTTPException:
         raise
     except Exception as error:
@@ -275,6 +496,8 @@ async def websocket_webcam(websocket: WebSocket):
             async with webcam_stream_lock:
                 webcam_stream_buffer.append(data)
 
+            await hls_recorder.write(data)
+
             now = loop.time()
             if (
                 not analysis_in_progress
@@ -294,6 +517,7 @@ async def websocket_webcam(websocket: WebSocket):
         async with webcam_stream_lock:
             webcam_stream_active = False
             webcam_stream_buffer.clear()
+        await hls_recorder.stop()
 
 
 @app.websocket("/api/websocket/alerts")
@@ -369,7 +593,7 @@ async def stream_proxy_endpoint(streamId: Optional[str] = Query(None)):
     
     # Check if it's a local video file (starts with /videos/)
     if stream_url.startswith("/videos/"):
-        video_path = Path(__file__).parent.parent / "videos" / stream_url.replace("/videos/", "")
+        video_path = VIDEOS_DIR / stream_url.replace("/videos/", "")
         if video_path.exists():
             return FileResponse(
                 str(video_path),
@@ -448,9 +672,9 @@ async def stream_options():
 
 
 # Mount videos folder to serve video files
-videos_dir = Path(__file__).parent.parent / "videos"
-if videos_dir.exists():
-    app.mount("/videos", StaticFiles(directory=str(videos_dir)), name="videos")
+VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
+if VIDEOS_DIR.exists():
+    app.mount("/videos", StaticFiles(directory=str(VIDEOS_DIR)), name="videos")
 
 # Serve static files from frontend dist
 frontend_path = Path(__file__).parent.parent.parent / "HTC-dashboard" / "dist"
