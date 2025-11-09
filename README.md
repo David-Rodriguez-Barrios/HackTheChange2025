@@ -4,6 +4,17 @@ Set up both the backend and dashboard to get the app running locally.
 
 ## 🧠 Backend Setup
 
+
+Prereq install ffmpeg:
+
+macos:
+```
+brew install ffmpeg
+```
+windows:
+```
+choco install ffmpeg
+```
 Navigate to the backend directory:
 
 ```
