@@ -5,6 +5,7 @@ const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
 export function WebcamConnection() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [latestAlert, setLatestAlert] = useState<{ level: string; message: string; time: string } | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -33,6 +34,21 @@ export function WebcamConnection() {
         websocket.onopen = () => {
           console.log('WebSocket connected');
           startFrameCapture();
+        };
+
+        websocket.onmessage = (event) => {
+          try {
+            const payload = JSON.parse(event.data);
+            if (payload?.type === 'priority_alert') {
+              setLatestAlert({
+                level: payload.level ?? payload.rawLevel ?? 'INFO',
+                message: payload.alertName ?? payload.reason ?? 'Priority alert received',
+                time: payload.time ?? new Date().toISOString()
+              });
+            }
+          } catch (parseError) {
+            console.error('Failed to parse websocket message', parseError);
+          }
         };
 
         websocket.onerror = (err) => {
@@ -86,6 +102,8 @@ export function WebcamConnection() {
       clearInterval(frameIntervalRef.current);
       frameIntervalRef.current = null;
     }
+
+    setLatestAlert(null);
 
     if (wsRef.current) {
       wsRef.current.close();
@@ -163,6 +181,29 @@ export function WebcamConnection() {
           ref={canvasRef}
           style={{ display: 'none' }}
         />
+        {latestAlert && (
+          <div style={{
+            position: 'absolute',
+            bottom: '16px',
+            left: '16px',
+            padding: '12px 16px',
+            background: 'rgba(0, 0, 0, 0.75)',
+            color: '#fff',
+            borderRadius: '8px',
+            maxWidth: '80%',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+          }}>
+            <div style={{ fontWeight: 600, marginBottom: '4px', letterSpacing: '0.5px' }}>
+              Priority Alert · {latestAlert.level}
+            </div>
+            <div style={{ fontSize: '14px', lineHeight: 1.4 }}>
+              {latestAlert.message}
+            </div>
+            <div style={{ fontSize: '12px', opacity: 0.7, marginTop: '6px' }}>
+              {new Date(latestAlert.time).toLocaleTimeString()}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

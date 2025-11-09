@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type KeyboardEvent } from "react";
 import type { AlertLevelType } from "../types/sharedTypes";
 
 interface PriorityAlertCardProps {
@@ -6,10 +6,20 @@ interface PriorityAlertCardProps {
   level: AlertLevelType;
   location?: string;
   time?: Date;
+  onSelect?: () => void;
+  isActive?: boolean;
 }
-export function PriorityAlertCard({ alertName, level, location, time }: PriorityAlertCardProps) {
+export function PriorityAlertCard({
+  alertName,
+  level,
+  location,
+  time,
+  onSelect,
+  isActive,
+}: PriorityAlertCardProps) {
   const levelClass = `priority-${level.toLowerCase()}`;
   const [relativeTime, setRelativeTime] = useState("");
+  const isInteractive = typeof onSelect === "function";
 
   // Helper to compute "seconds ago" or "minutes ago"
   const computeRelativeTime = () => {
@@ -30,8 +40,33 @@ export function PriorityAlertCard({ alertName, level, location, time }: Priority
     return () => clearInterval(interval);
   }, [time]);
 
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLDivElement>) => {
+      if (!isInteractive) {
+        return;
+      }
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        onSelect?.();
+      }
+    },
+    [isInteractive, onSelect]
+  );
+
   return (
-    <div className="priority-alert-card">
+    <div
+      className={[
+        "priority-alert-card",
+        isInteractive ? "priority-alert-card--interactive" : "",
+        isActive ? "priority-alert-card--active" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      role={isInteractive ? "button" : undefined}
+      tabIndex={isInteractive ? 0 : undefined}
+      onClick={isInteractive ? onSelect : undefined}
+      onKeyDown={handleKeyDown}
+    >
       <div className="alert-top">
         <div>
           <span className={`priority-dot ${levelClass}`}></span>

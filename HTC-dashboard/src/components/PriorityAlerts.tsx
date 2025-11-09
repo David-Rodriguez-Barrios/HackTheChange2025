@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useAlerts } from "../contexts/AlertsContext";
 import { AlertLevel } from "../types/sharedTypes";
 import { PriorityAlertCard } from "./PriorityAlertCard";
@@ -5,13 +6,23 @@ import './PriorityAlerts.css';
 
 
 export function PriorityAlerts() {
-  const { priorityAlerts } = useAlerts();
+  const { priorityAlerts, selectAlert, selectedAlert } = useAlerts();
 
-  const alertsArray = priorityAlerts instanceof Map ? Array.from(priorityAlerts.values()) : [];
+  const alertsEntries = useMemo(() => {
+    if (!(priorityAlerts instanceof Map)) {
+      return [];
+    }
+    const entries = Array.from(priorityAlerts.entries());
+    entries.sort(([, a], [, b]) => {
+      if (!a.time || !b.time) return 0;
+      return b.time.getTime() - a.time.getTime();
+    });
+    return entries;
+  }, [priorityAlerts]);
 
-  const highCount = alertsArray.filter(a => a.level === AlertLevel.HIGH).length;
-  const mediumCount = alertsArray.filter(a => a.level === AlertLevel.MEDIUM).length;
-  const lowCount = alertsArray.filter(a => a.level === AlertLevel.LOW).length;
+  const highCount = alertsEntries.filter(([, alert]) => alert.level === AlertLevel.HIGH).length;
+  const mediumCount = alertsEntries.filter(([, alert]) => alert.level === AlertLevel.MEDIUM).length;
+  const lowCount = alertsEntries.filter(([, alert]) => alert.level === AlertLevel.LOW).length;
 
   return (
     <div className="priority-alerts-panel">
@@ -33,14 +44,16 @@ export function PriorityAlerts() {
         </div>
       </div>
       <div className="priority-alerts-scroll">
-        {alertsArray.length > 0 ? (
-          alertsArray.map((alert, idx) => (
+        {alertsEntries.length > 0 ? (
+          alertsEntries.map(([alertId, alert]) => (
             <PriorityAlertCard
-              key={idx}
+              key={alertId}
               alertName={alert.alertName}
               level={alert.level}
               location={alert.location}
               time={alert.time}
+              isActive={selectedAlert?.id === alertId}
+              onSelect={() => selectAlert(alertId)}
             />
           ))
         ) : (
