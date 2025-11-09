@@ -139,10 +139,9 @@ export function AlertsProvider({ children }: { children: ReactNode }): JSX.Eleme
 
   // WebSocket connection for live alerts
   useEffect(() => {
-    // Skip WebSocket if using batch alerts
+    // Always connect to WebSocket for live alerts 
     if (USE_BATCH_ALERTS) {
-      console.log("ℹ️ Using batch alert simulation mode");
-      return;
+      console.log("ℹ️ Batch alert simulation mode is enabled alongside live alerts");
     }
 
     const wsProtocol = BACKEND_URL.startsWith("https://") ? "wss://" : "ws://";
