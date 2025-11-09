@@ -1,5 +1,5 @@
 import './App.css'
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import StreamPlayer from './components/StreamPlayer'
 import { LandingPage } from './pages/LandingPage'
 import { WebcamConnection } from './pages/WebcamConnection'
@@ -8,8 +8,8 @@ function App() {
     return (
         <BrowserRouter>
             <Routes>
-                <Route 
-                    path="/" 
+                <Route
+                    path="/"
                     element={
                         <div>
                             <h1>Hello World</h1>
@@ -20,11 +20,11 @@ function App() {
                             <StreamPlayer streamId="stream-1" />
                             <LandingPage />
                         </div>
-                    } 
+                    }
                 />
-                <Route 
-                    path="/webcam" 
-                    element={<WebcamConnection />} 
+                <Route
+                    path="/webcam"
+                    element={<WebcamConnection />}
                 />
             </Routes>
         </BrowserRouter>

@@ -1,15 +1,16 @@
 import { useState } from "react"
 import { AlertsProvider } from "../contexts/AlertsProvider"
 import { PriorityAlerts } from "../components/PriorityAlerts"
-export function LandingPage(){
-  const [currentVideo, setCurrentVideo] = useState("")
+import { AllStreams } from "../components/AllStreams"
+export function LandingPage() {
 
-  return(
+  return (
     <>
-    {/* Insert the Videos Component Here afterwards  */}
-    <AlertsProvider>
-      <PriorityAlerts/>
-    </AlertsProvider>
+      {/* Insert the Videos Component Here afterwards  */}
+      <AllStreams />
+      <AlertsProvider>
+        <PriorityAlerts />
+      </AlertsProvider>
     </>
   )
 }

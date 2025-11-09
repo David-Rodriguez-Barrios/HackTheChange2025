@@ -18,28 +18,28 @@ export function WebcamConnection() {
         video: { width: 640, height: 480 },
         audio: false
       });
-      
+
       streamRef.current = stream;
-      
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
         setIsStreaming(true);
-        
+
         const url = BACKEND_URL.replace('http://', 'ws://').replace('https://', 'wss://');
         const websocket = new WebSocket(`${url}/api/websocket/webcam`);
         wsRef.current = websocket;
-        
+
         websocket.onopen = () => {
           console.log('WebSocket connected');
           startFrameCapture();
         };
-        
+
         websocket.onerror = (err) => {
           console.error('WebSocket error:', err);
           setError('Failed to connect to server');
         };
-        
+
         websocket.onclose = () => {
           console.log('WebSocket disconnected');
         };
@@ -54,20 +54,20 @@ export function WebcamConnection() {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const ws = wsRef.current;
-    
+
     if (!video || !canvas || !ws) return;
-    
+
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    
+
     // Set canvas size to match video
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-    
+
     const captureFrame = () => {
       if (video.readyState === video.HAVE_ENOUGH_DATA && ws.readyState === WebSocket.OPEN) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
+
         canvas.toBlob((blob) => {
           if (blob && ws.readyState === WebSocket.OPEN) {
             blob.arrayBuffer().then((buffer) => {
@@ -77,7 +77,7 @@ export function WebcamConnection() {
         }, 'image/jpeg', 0.8);
       }
     };
-    
+
     frameIntervalRef.current = window.setInterval(captureFrame, 33);
   };
 
@@ -86,21 +86,21 @@ export function WebcamConnection() {
       clearInterval(frameIntervalRef.current);
       frameIntervalRef.current = null;
     }
-    
+
     if (wsRef.current) {
       wsRef.current.close();
       wsRef.current = null;
     }
-    
+
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
-    
+
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
-    
+
     setIsStreaming(false);
   };
 
@@ -111,15 +111,15 @@ export function WebcamConnection() {
   }, []);
 
   return (
-    <div style={{ 
-      padding: '20px', 
-      maxWidth: '800px', 
+    <div style={{
+      padding: '20px',
+      maxWidth: '800px',
       margin: '0 auto',
       display: 'flex',
       flexDirection: 'column',
       gap: '20px'
     }}>
-      
+
       <div style={{ display: 'flex', gap: '10px' }}>
         <button
           onClick={isStreaming ? stopWebcam : startWebcam}
