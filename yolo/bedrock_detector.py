@@ -1,7 +1,7 @@
 """
 Optimized Transit Incident Detector using Claude 3 Haiku (Cheap & Fast)
 Cost: ~$0.25 per 1000 images vs $3 for Sonnet
-Usage: python haiku_detector.py your_video.mp4
+Usage: python haiku_detector_fixed.py your_video.mp4
 """
 
 import cv2
@@ -74,6 +74,9 @@ class HaikuIncidentDetector:
 NORMAL: Normal operations
 DANGEROUS: Fights, crowds, suspicious activity  
 CRITICAL: Weapons, violence, panic"""
+
+        # Centralized timing configuration
+        self.analyze_interval = 3  # Analyze every 3 seconds (CONFIGURABLE HERE)
 
         # Thread-safe variables for async analysis
         self.current_danger = 'NORMAL'
@@ -201,6 +204,7 @@ CRITICAL: Weapons, violence, panic"""
             return 'NORMAL', 'API error'
 
     def get_color(self, danger_level):
+        """Get color for danger level"""
         colors = {
             'NORMAL': (0, 255, 0),      # Green
             'DANGEROUS': (0, 165, 255), # Orange
@@ -208,8 +212,12 @@ CRITICAL: Weapons, violence, panic"""
         }
         return colors.get(danger_level, (0, 255, 0))
 
-    def process_video(self, video_path, analyze_interval=5):
-        """Process video with non-blocking analysis for smooth playback"""
+    def process_video(self, video_path, analyze_interval=None):
+        """Process video with non-blocking analysis and proper frame timing"""
+        # Use class variable if no override provided
+        if analyze_interval is None:
+            analyze_interval = self.analyze_interval
+        
         cap = cv2.VideoCapture(video_path)
         
         if not cap.isOpened():
@@ -217,14 +225,18 @@ CRITICAL: Weapons, violence, panic"""
             return
         
         print(f"🎬 Analyzing video with Haiku: {video_path}")
-        print("💰 Cost-optimized: 5-second intervals, lower quality")
+        print(f"💰 Cost-optimized: {analyze_interval}-second intervals, lower quality")
         print("🎥 Smooth playback: Non-blocking analysis")
         print("Press 'q' to quit")
         print("-" * 50)
         
         frame_count = 0
         fps = cap.get(cv2.CAP_PROP_FPS) or 30
-        analyze_every = int(fps * analyze_interval)  # Every 5 seconds
+        
+        # Calculate proper frame delay for timing
+        frame_delay = int(1000 / fps)  # Convert to milliseconds
+        print(f"🎬 Video FPS: {fps}, Frame delay: {frame_delay}ms")
+        print(f"🔍 Analysis interval: {analyze_interval} seconds")
         
         alerts = {'NORMAL': 0, 'DANGEROUS': 0, 'CRITICAL': 0}
         api_calls = 0
@@ -233,6 +245,8 @@ CRITICAL: Weapons, violence, panic"""
         start_time = time.time()
         
         while True:
+            loop_start = time.time()  # Track loop timing for proper frame rate
+            
             ret, frame = cap.read()
             if not ret:
                 break
@@ -240,12 +254,13 @@ CRITICAL: Weapons, violence, panic"""
             frame_count += 1
             current_time = frame_count / fps
             
-            # Start analysis in background (non-blocking)
-            if frame_count % analyze_every == 0 and current_time - last_analysis_time >= analyze_interval:
+            # SIMPLIFIED: Just check if enough time has passed since last analysis
+            time_since_last_analysis = current_time - last_analysis_time
+            if time_since_last_analysis >= analyze_interval:
                 if self.start_analysis(frame, current_time):
                     api_calls += 1
                     last_analysis_time = current_time
-                    print(f"⏳ Started analysis {api_calls} at {current_time:.1f}s...")
+                    print(f"⏳ Started analysis {api_calls} at {current_time:.1f}s (interval: {time_since_last_analysis:.1f}s)")
             
             # Get current results (thread-safe)
             with self.analysis_lock:
@@ -254,7 +269,7 @@ CRITICAL: Weapons, violence, panic"""
                 is_analyzing = self.analyzing
             
             # Count alerts when analysis completes
-            if frame_count > analyze_every and not is_analyzing:
+            if frame_count > fps and not is_analyzing:  # After first second
                 alerts[display_danger] = alerts.get(display_danger, 0)
             
             # Draw results on frame
@@ -278,11 +293,14 @@ CRITICAL: Weapons, violence, panic"""
             cv2.putText(frame, reason_display, (20, 100), 
                        cv2.FONT_HERSHEY_SIMPLEX, 0.3, (255, 255, 255), 1)
             
-            # Show frame (this never blocks now!)
+            # Show frame
             cv2.imshow('Haiku Detector (Smooth Playback)', frame)
             
-            # Quick key check (1ms timeout)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
+            # FIXED: Proper frame timing to match original video speed
+            loop_time = (time.time() - loop_start) * 1000  # Time spent processing (ms)
+            wait_time = max(1, frame_delay - int(loop_time))  # Remaining time to wait
+            
+            if cv2.waitKey(wait_time) & 0xFF == ord('q'):
                 break
         
         # Wait for any pending analysis to complete
@@ -298,6 +316,7 @@ CRITICAL: Weapons, violence, panic"""
         print(f"API calls made: {api_calls}")
         print(f"Estimated cost: ${estimated_cost:.4f}")
         print(f"Processing time: {elapsed_time:.1f}s")
+        print(f"Analysis interval: {analyze_interval}s")
         print(f"Video played smoothly: ✅")
         
         total = sum(alerts.values())
@@ -314,8 +333,8 @@ def main():
     if len(sys.argv) < 2:
         print("🚨 Haiku Transit Incident Detector (Budget Version)")
         print("Usage:")
-        print("  python haiku_detector.py video.mp4")
-        print("  python haiku_detector.py webcam")
+        print("  python haiku_detector_fixed.py video.mp4")
+        print("  python haiku_detector_fixed.py webcam")
         print()
         print("🔧 Setup (.env file method):")
         print("  1. Create .env file in this directory:")
@@ -323,7 +342,7 @@ def main():
         print("     AWS_SECRET_ACCESS_KEY=your_secret_key_here") 
         print("     AWS_DEFAULT_REGION=us-east-1")
         print("  2. Install: pip install python-dotenv")
-        print("  3. Run: python haiku_detector.py video.mp4")
+        print("  3. Run: python haiku_detector_fixed.py video.mp4")
         print()
         print("🔧 Alternative setup:")
         print("  - Run: aws configure")
@@ -331,7 +350,7 @@ def main():
         print()
         print("💰 Cost optimization:")
         print("  - Uses Claude 3 Haiku (~10x cheaper)")
-        print("  - 7-second intervals (vs 3-second)")
+        print("  - 3-second intervals (vs 5-second in Sonnet)")
         print("  - Lower image quality")
         print("  - Estimated: $0.25 per 1000 frames")
         return
