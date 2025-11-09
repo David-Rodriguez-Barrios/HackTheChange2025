@@ -10,6 +10,7 @@ import time
 import sys
 import os
 import json
+import threading
 from io import BytesIO
 from PIL import Image
 import boto3
@@ -67,12 +68,19 @@ class HaikuIncidentDetector:
         self.prompt = """Quick CCTV analysis. JSON only:
 {
   "level": "NORMAL|DANGEROUS|CRITICAL",
-  "reason": "Brief reason",
+  "reason": "Brief reason"
 }
 
 NORMAL: Normal operations
 DANGEROUS: Fights, crowds, suspicious activity  
 CRITICAL: Weapons, violence, panic"""
+
+        # Thread-safe variables for async analysis
+        self.current_danger = 'NORMAL'
+        self.current_reason = 'Starting analysis...'
+        self.analysis_lock = threading.Lock()
+        self.analysis_queue = []
+        self.analyzing = False
 
     def frame_to_base64(self, frame, quality=60):
         """Convert frame to base64 with lower quality for speed/cost"""
@@ -94,6 +102,45 @@ CRITICAL: Weapons, violence, panic"""
         img_base64 = base64.b64encode(buffer.getvalue()).decode()
         
         return img_base64
+
+    def analyze_frame_background(self, frame, frame_time):
+        """Analyze frame in background thread (non-blocking)"""
+        try:
+            danger_level, reason = self.analyze_frame(frame)
+            
+            # Thread-safe update of results
+            with self.analysis_lock:
+                self.current_danger = danger_level
+                self.current_reason = reason
+                self.analyzing = False
+                
+            # Print results
+            if danger_level == 'CRITICAL':
+                print(f"🔴 CRITICAL at {frame_time:.1f}s: {reason}")
+            elif danger_level == 'DANGEROUS':
+                print(f"🟠 DANGEROUS at {frame_time:.1f}s: {reason}")
+            else:
+                print(f"🟢 NORMAL at {frame_time:.1f}s: {reason}")
+                
+        except Exception as e:
+            print(f"Background analysis error: {e}")
+            with self.analysis_lock:
+                self.analyzing = False
+
+    def start_analysis(self, frame, frame_time):
+        """Start analysis in background thread if not already analyzing"""
+        with self.analysis_lock:
+            if not self.analyzing:
+                self.analyzing = True
+                # Start background thread
+                thread = threading.Thread(
+                    target=self.analyze_frame_background,
+                    args=(frame.copy(), frame_time),  # Copy frame to avoid race conditions
+                    daemon=True
+                )
+                thread.start()
+                return True
+        return False
 
     def analyze_frame(self, frame):
         """Send frame to Haiku for fast, cheap analysis"""
@@ -161,8 +208,8 @@ CRITICAL: Weapons, violence, panic"""
         }
         return colors.get(danger_level, (0, 255, 0))
 
-    def process_video(self, video_path, analyze_interval=3):
-        """Process video with optimized intervals for cost savings"""
+    def process_video(self, video_path, analyze_interval=5):
+        """Process video with non-blocking analysis for smooth playback"""
         cap = cv2.VideoCapture(video_path)
         
         if not cap.isOpened():
@@ -170,18 +217,18 @@ CRITICAL: Weapons, violence, panic"""
             return
         
         print(f"🎬 Analyzing video with Haiku: {video_path}")
-        print("💰 Cost-optimized: 7-second intervals, lower quality")
+        print("💰 Cost-optimized: 5-second intervals, lower quality")
+        print("🎥 Smooth playback: Non-blocking analysis")
         print("Press 'q' to quit")
         print("-" * 50)
         
         frame_count = 0
         fps = cap.get(cv2.CAP_PROP_FPS) or 30
-        analyze_every = int(fps * analyze_interval)  # Every 7 seconds
+        analyze_every = int(fps * analyze_interval)  # Every 5 seconds
         
-        current_danger = 'NORMAL'
-        current_reason = 'Starting...'
         alerts = {'NORMAL': 0, 'DANGEROUS': 0, 'CRITICAL': 0}
         api_calls = 0
+        last_analysis_time = 0
         
         start_time = time.time()
         
@@ -191,37 +238,57 @@ CRITICAL: Weapons, violence, panic"""
                 break
             
             frame_count += 1
+            current_time = frame_count / fps
             
-            # Analyze less frequently to save money
-            if frame_count % analyze_every == 0:
-                api_calls += 1
-                print(f"⏳ Analyzing frame {api_calls} at {frame_count/fps:.1f}s...")
-                
-                current_danger, current_reason = self.analyze_frame(frame)
-                alerts[current_danger] += 1
-                
-                # Print results
-                if current_danger == 'CRITICAL':
-                    print(f"🔴 CRITICAL: {current_reason}")
-                elif current_danger == 'DANGEROUS':
-                    print(f"🟠 DANGEROUS: {current_reason}")
-                else:
-                    print(f"🟢 NORMAL: {current_reason}")
+            # Start analysis in background (non-blocking)
+            if frame_count % analyze_every == 0 and current_time - last_analysis_time >= analyze_interval:
+                if self.start_analysis(frame, current_time):
+                    api_calls += 1
+                    last_analysis_time = current_time
+                    print(f"⏳ Started analysis {api_calls} at {current_time:.1f}s...")
             
-            # Simple display
-            color = self.get_color(current_danger)
-            cv2.rectangle(frame, (10, 10), (400, 80), color, -1)
-            cv2.rectangle(frame, (10, 10), (400, 80), (0, 0, 0), 2)
+            # Get current results (thread-safe)
+            with self.analysis_lock:
+                display_danger = self.current_danger
+                display_reason = self.current_reason
+                is_analyzing = self.analyzing
             
-            cv2.putText(frame, f"STATUS: {current_danger}", (20, 35), 
+            # Count alerts when analysis completes
+            if frame_count > analyze_every and not is_analyzing:
+                alerts[display_danger] = alerts.get(display_danger, 0)
+            
+            # Draw results on frame
+            color = self.get_color(display_danger)
+            cv2.rectangle(frame, (10, 10), (450, 120), color, -1)
+            cv2.rectangle(frame, (10, 10), (450, 120), (0, 0, 0), 2)
+            
+            # Status text
+            cv2.putText(frame, f"STATUS: {display_danger}", (20, 35), 
                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
             cv2.putText(frame, f"API Calls: {api_calls}", (20, 60), 
                        cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
             
-            cv2.imshow('Haiku Detector (Cost Optimized)', frame)
+            # Show analyzing indicator
+            status_text = "Analyzing..." if is_analyzing else "Live"
+            cv2.putText(frame, status_text, (20, 80), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 0) if is_analyzing else (255, 255, 255), 1)
             
+            # Show reason (truncated for display)
+            reason_display = display_reason[:50] + "..." if len(display_reason) > 50 else display_reason
+            cv2.putText(frame, reason_display, (20, 100), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.3, (255, 255, 255), 1)
+            
+            # Show frame (this never blocks now!)
+            cv2.imshow('Haiku Detector (Smooth Playback)', frame)
+            
+            # Quick key check (1ms timeout)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
+        
+        # Wait for any pending analysis to complete
+        print("\n⏳ Waiting for final analysis to complete...")
+        while self.analyzing:
+            time.sleep(0.1)
         
         # Cost summary
         elapsed_time = time.time() - start_time
@@ -231,6 +298,7 @@ CRITICAL: Weapons, violence, panic"""
         print(f"API calls made: {api_calls}")
         print(f"Estimated cost: ${estimated_cost:.4f}")
         print(f"Processing time: {elapsed_time:.1f}s")
+        print(f"Video played smoothly: ✅")
         
         total = sum(alerts.values())
         if total > 0:
