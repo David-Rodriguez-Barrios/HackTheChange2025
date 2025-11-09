@@ -8,6 +8,7 @@ interface PriorityAlertCardProps {
   time?: Date;
   onSelect?: () => void;
   isActive?: boolean;
+  onClose?: () => void;
 }
 export function PriorityAlertCard({
   alertName,
@@ -16,6 +17,7 @@ export function PriorityAlertCard({
   time,
   onSelect,
   isActive,
+  onClose,
 }: PriorityAlertCardProps) {
   const levelClass = `priority-${level.toLowerCase()}`;
   const [relativeTime, setRelativeTime] = useState("");
@@ -53,6 +55,14 @@ export function PriorityAlertCard({
     [isInteractive, onSelect]
   );
 
+  const handleCloseClick = useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.stopPropagation();
+      onClose?.();
+    },
+    [onClose]
+  );
+
   return (
     <div
       className={[
@@ -72,7 +82,19 @@ export function PriorityAlertCard({
           <span className={`priority-dot ${levelClass}`}></span>
           {level}
         </div>
-        <div>{relativeTime}</div>
+        <div className="alert-top-right">
+          <div>{relativeTime}</div>
+          {isActive && onClose && (
+            <button
+              className="alert-close-btn"
+              onClick={handleCloseClick}
+              aria-label="Close alert"
+              title="Close alert"
+            >
+              ✕
+            </button>
+          )}
+        </div>
       </div>
       <div className="alert-message">{alertName}</div>
       {location && <div className="alert-bottom">{location}</div>}

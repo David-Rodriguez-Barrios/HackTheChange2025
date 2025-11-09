@@ -16,13 +16,15 @@ body {
 .landing-sidebar {
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 }
 
 
 @media (max-width: 1200px) {
   .landing-layout {
     grid-template-columns: 1fr;
-    height: auto;
+    height: 100vh;
   }
 
   .landing-sidebar {

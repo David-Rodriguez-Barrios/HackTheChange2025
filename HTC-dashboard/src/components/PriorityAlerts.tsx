@@ -6,7 +6,7 @@ import './PriorityAlerts.css';
 
 
 export function PriorityAlerts() {
-  const { priorityAlerts, selectAlert, selectedAlert } = useAlerts();
+  const { priorityAlerts, selectAlert, selectedAlert, clearAlertSelection } = useAlerts();
 
   const alertsEntries = useMemo(() => {
     if (!(priorityAlerts instanceof Map)) {
@@ -54,6 +54,7 @@ export function PriorityAlerts() {
               time={alert.time}
               isActive={selectedAlert?.id === alertId}
               onSelect={() => selectAlert(alertId)}
+              onClose={() => clearAlertSelection()}
             />
           ))
         ) : (
