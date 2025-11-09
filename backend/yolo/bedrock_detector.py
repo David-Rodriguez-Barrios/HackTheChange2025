@@ -36,15 +36,10 @@ class HaikuIncidentDetector:
         aws_region = os.getenv('AWS_DEFAULT_REGION', region)
         
         if aws_access_key and aws_secret_key:
-            print(f"✅ Found AWS credentials (Access Key: {aws_access_key[:8]}...)")
-            print(f"✅ Using region: {aws_region}")
+            print(f"Found AWS credentials")
+            print(f"Using region: {aws_region}")
         else:
-            print("❌ AWS credentials not found!")
-            print("📝 Create a .env file in this directory with:")
-            print("   AWS_ACCESS_KEY_ID=your_access_key_here")
-            print("   AWS_SECRET_ACCESS_KEY=your_secret_key_here")
-            print("   AWS_DEFAULT_REGION=us-east-1")
-            print("💡 Or run: aws configure")
+            print("AWS credentials not found!")
             sys.exit(1)
         
         # Configure AWS Bedrock client
@@ -54,13 +49,12 @@ class HaikuIncidentDetector:
                 region_name=aws_region
             )
             
-            # Use Claude 3 Haiku - much cheaper and faster!
+            # haiku is fast and cheap
             self.model_id = 'anthropic.claude-3-haiku-20240307-v1:0'
             
-            print("✅ Connected to AWS Bedrock (Claude 3 Haiku)")
+            print(f"Connected to AWS Bedrock using {self.model_id}")
             
         except Exception as e:
-            print("❌ Failed to connect to AWS Bedrock")
             print(f"Error: {e}")
             sys.exit(1)
         
@@ -84,7 +78,7 @@ CRITICAL: Weapons, violence, panic"""
 
     def frame_to_base64(self, frame, quality=60):
         """Convert frame to base64 with lower quality for speed/cost"""
-        # Resize frame for faster processing and lower cost
+        # Resize frame
         height, width = frame.shape[:2]
         if width > 640:  # Resize large frames
             scale = 640 / width
@@ -96,7 +90,6 @@ CRITICAL: Weapons, violence, panic"""
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         pil_image = Image.fromarray(rgb_frame)
         
-        # Lower quality = smaller file = cheaper API calls
         buffer = BytesIO()
         pil_image.save(buffer, format='JPEG', quality=quality)
         img_base64 = base64.b64encode(buffer.getvalue()).decode()

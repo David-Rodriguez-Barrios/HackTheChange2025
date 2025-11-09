@@ -8,6 +8,10 @@ export function PriorityAlerts() {
   const { priorityAlerts } = useAlerts();
 
   const alertsArray = priorityAlerts instanceof Map ? Array.from(priorityAlerts.values()) : [];
+  alertsArray.sort((a, b) => {
+    if (!a.time || !b.time) return 0;
+    return b.time.getTime() - a.time.getTime();
+  });
 
   const highCount = alertsArray.filter(a => a.level === AlertLevel.HIGH).length;
   const mediumCount = alertsArray.filter(a => a.level === AlertLevel.MEDIUM).length;

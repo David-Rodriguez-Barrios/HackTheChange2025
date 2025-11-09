@@ -1,6 +1,9 @@
 import os
+import json
+import uuid
+from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Set
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse, FileResponse
@@ -11,6 +14,9 @@ import httpx
 from dotenv import load_dotenv
 import asyncio
 from collections import deque
+import cv2
+import numpy as np
+from starlette.websockets import WebSocketState
 from .db_queries import (
     get_stream_by_id,
     create_stream,
@@ -18,6 +24,7 @@ from .db_queries import (
     stream_exists_by_url,
     reset_stream_store,
 )
+from yolo.bedrock_detector import HaikuIncidentDetector
 
 load_dotenv()
 
@@ -25,6 +32,49 @@ load_dotenv()
 webcam_stream_buffer: deque = deque(maxlen=10)  # Store last 10 frames
 webcam_stream_active = False
 webcam_stream_lock = asyncio.Lock()
+alert_subscribers: Set[WebSocket] = set()
+bedrock_call_lock = asyncio.Lock()
+WEBCAM_ANALYSIS_INTERVAL = max(1.0, float(os.getenv("WEBCAM_ANALYSIS_INTERVAL_SECONDS", "1")))
+detector = HaikuIncidentDetector()
+
+
+def decode_frame_from_bytes(frame_bytes: bytes):
+    """Convert JPEG bytes into an OpenCV BGR frame."""
+    np_array = np.frombuffer(frame_bytes, dtype=np.uint8)
+    if np_array.size == 0:
+        return None
+    frame = cv2.imdecode(np_array, cv2.IMREAD_COLOR)
+    return frame
+
+
+def map_alert_level(danger_level: str) -> Optional[str]:
+    """Map detector danger levels to frontend priority alert levels."""
+    level_map = {
+        "CRITICAL": "HIGH",
+        "DANGEROUS": "MEDIUM",
+        "NORMAL": "LOW",
+    }
+    return level_map.get(danger_level.upper(), None)
+
+
+async def broadcast_alert(alert: dict, include_websocket: Optional[WebSocket] = None):
+    """Send alert payload to all subscribed websocket clients."""
+    message = json.dumps(alert)
+    targets = set(alert_subscribers)
+    if include_websocket is not None:
+        targets.add(include_websocket)
+
+    disconnected = []
+    for ws in targets:
+        try:
+            if ws.application_state == WebSocketState.CONNECTED:
+                await ws.send_text(message)
+        except Exception as exc:
+            print(f"Error sending alert to websocket {ws.client}: {exc}")
+            disconnected.append(ws)
+
+    for ws in disconnected:
+        alert_subscribers.discard(ws)
 
 
 async def scan_videos_folder():
@@ -91,6 +141,16 @@ async def list_streams_endpoint():
     """Get all streams"""
     try:
         streams = await get_all_streams()
+
+        include_webcam = False
+        async with webcam_stream_lock:
+            include_webcam = webcam_stream_active or len(webcam_stream_buffer) > 0
+
+        if include_webcam:
+            # Ensure webcam stream appears only once and at the beginning of the list
+            if not any(stream.get("id") == "webcam" for stream in streams):
+                streams = [{"id": "webcam", "url": "webcam"}] + streams
+
         return {"streams": streams}
     except Exception:
         raise HTTPException(status_code=500, detail="Error retrieving streams")
@@ -167,11 +227,62 @@ async def websocket_webcam(websocket: WebSocket):
         
         print("Webcam stream active")
         
+        analysis_in_progress = False
+        last_analysis_time = 0.0
+        loop = asyncio.get_running_loop()
+
+        async def analyze_and_send(frame_bytes: bytes):
+            nonlocal analysis_in_progress
+            try:
+                frame = await asyncio.to_thread(decode_frame_from_bytes, frame_bytes)
+                if frame is None:
+                    return
+
+                async with bedrock_call_lock:
+                    danger_level, reason = await asyncio.to_thread(detector.analyze_frame, frame)
+
+                normalized_level = danger_level.upper()
+                if normalized_level == "NORMAL":
+                    return
+
+                mapped_level = map_alert_level(normalized_level)
+                if mapped_level is None:
+                    return
+
+                alert_payload = {
+                    "type": "priority_alert",
+                    "id": str(uuid.uuid4()),
+                    "alertName": reason or "Unknown event",
+                    "level": mapped_level,
+                    "rawLevel": normalized_level,
+                    "location": "Webcam",
+                    "url": "",
+                    "time": datetime.utcnow().isoformat() + "Z",
+                    "source": "webcam",
+                }
+
+                await broadcast_alert(alert_payload, include_websocket=websocket)
+            except WebSocketDisconnect:
+                raise
+            except Exception as exc:
+                print(f"Error during frame analysis: {exc}")
+            finally:
+                analysis_in_progress = False
+
         while True:
             data = await websocket.receive_bytes()
             
             async with webcam_stream_lock:
                 webcam_stream_buffer.append(data)
+
+            now = loop.time()
+            if (
+                not analysis_in_progress
+                and now - last_analysis_time >= WEBCAM_ANALYSIS_INTERVAL
+            ):
+                last_analysis_time = now
+                analysis_in_progress = True
+                asyncio.create_task(analyze_and_send(data))
                 
     except WebSocketDisconnect:
         print("Webcam stream disconnected")
@@ -182,6 +293,24 @@ async def websocket_webcam(websocket: WebSocket):
     finally:
         async with webcam_stream_lock:
             webcam_stream_active = False
+            webcam_stream_buffer.clear()
+
+
+@app.websocket("/api/websocket/alerts")
+async def websocket_alerts(websocket: WebSocket):
+    try:
+        await websocket.accept()
+        alert_subscribers.add(websocket)
+        print(f"Alert WebSocket connected from {websocket.client}")
+        # Keep the connection alive by waiting for incoming messages (if any)
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        print("Alert WebSocket disconnected")
+    except Exception as exc:
+        print(f"Alert WebSocket error: {exc}")
+    finally:
+        alert_subscribers.discard(websocket)
 
 
 @app.get("/api/stream")

@@ -1,10 +1,13 @@
 export type PriorityAlert = {
+  id?: string;
   alertName: string;
-  level: AlertLevelType
+  level: AlertLevelType;
   url: string;
   location: string;
-  time: Date
-}
+  time: Date;
+  rawLevel?: string;
+  source?: string;
+};
 
 export const AlertLevel = {
   NONE: "NONE",
