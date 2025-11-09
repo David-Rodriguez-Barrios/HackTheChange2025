@@ -1,0 +1,9 @@
+ultralytics
+opencv-python
+numpy
+torch
+torchvision
+Pillow
+boto3
+botocore
+python-dotenv

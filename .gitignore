@@ -139,6 +139,8 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 yolo/vids
 
+# gitignore venv files from all directories recursively
+**/venv/
 # Python
 __pycache__/
 *.py[cod]
