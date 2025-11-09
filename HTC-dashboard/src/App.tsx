@@ -1,5 +1,5 @@
 import './App.css'
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import StreamPlayer from './components/StreamPlayer'
 import { LandingPage } from './pages/LandingPage'
 import { WebcamConnection } from './pages/WebcamConnection'
@@ -17,7 +17,6 @@ function App() {
                                 <h2>Webcam Stream</h2>
                                 <StreamPlayer streamId="webcam" />
                             </div>
-                            <StreamPlayer streamId="stream-1" />
                             <LandingPage />
                         </div>
                     } 

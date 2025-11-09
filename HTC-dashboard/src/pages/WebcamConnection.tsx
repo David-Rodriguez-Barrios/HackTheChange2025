@@ -120,6 +120,18 @@ export function WebcamConnection() {
       gap: '20px'
     }}>
       
+      {error && (
+        <div style={{
+          padding: '10px',
+          backgroundColor: '#f8d7da',
+          color: '#721c24',
+          borderRadius: '5px',
+          border: '1px solid #f5c6cb'
+        }}>
+          {error}
+        </div>
+      )}
+      
       <div style={{ display: 'flex', gap: '10px' }}>
         <button
           onClick={isStreaming ? stopWebcam : startWebcam}

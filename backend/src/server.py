@@ -171,10 +171,21 @@ async def stream_proxy_endpoint(streamId: Optional[str] = Query(None)):
             }
         )
     
+    # Try to get stream from database
     stream = await get_stream_by_id(stream_id)
     
     if not stream:
-        raise HTTPException(status_code=404, detail="Stream ID Not found")
+        # Check if it's a string ID that couldn't be converted to int
+        try:
+            int(stream_id)
+            # It's a valid int but stream not found
+            raise HTTPException(status_code=404, detail=f"Stream with ID '{stream_id}' not found")
+        except ValueError:
+            # It's a string ID that's not numeric and not "webcam"
+            raise HTTPException(
+                status_code=404, 
+                detail=f"Stream ID '{stream_id}' not found. Stream IDs must be numeric or 'webcam'"
+            )
     
     external_url = stream["url"]
     
