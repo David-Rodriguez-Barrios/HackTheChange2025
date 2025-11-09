@@ -68,7 +68,7 @@ export function AlertsProvider({ children }: { children: ReactNode }): JSX.Eleme
           // keep only the latest 50 alerts to limit memory
           while (next.size > 50) {
             const firstKey = next.keys().next().value;
-            next.delete(firstKey);
+            next.delete(firstKey!);
           }
           return next;
         });
