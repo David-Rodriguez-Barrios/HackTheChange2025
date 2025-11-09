@@ -31,7 +31,7 @@ export function AlertsProvider({ children }: { children: ReactNode }): JSX.Eleme
   const [priorityAlerts, setPriorityAlerts] = useState<Map<string, PriorityAlert>>(new Map());
   const [selectedAlert, setSelectedAlert] = useState<AlertSelection | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
-  const batchAlertsTimerRef = useRef<NodeJS.Timeout[]>([]);
+  const batchAlertsTimerRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const selectAlert = useCallback((alertId: string | null) => {
     if (!alertId) {
@@ -45,7 +45,7 @@ export function AlertsProvider({ children }: { children: ReactNode }): JSX.Eleme
   }, []);
 
   // Process alert payload (shared logic for websocket and batch simulation)
-  const processAlertPayload = useCallback((payload: BatchAlertPayload | any) => {
+  const processAlertPayload = useCallback((payload: BatchAlertPayload | any, isBatchSimulation = false) => {
     if (payload?.type !== "priority_alert") {
       return;
     }
@@ -68,7 +68,8 @@ export function AlertsProvider({ children }: { children: ReactNode }): JSX.Eleme
       level,
       url: payload.url ?? "",
       location: payload.location ?? (payload.source ? payload.source : "Unknown"),
-      time: payload.time ? new Date(payload.time) : new Date(),
+      // Use current time for batch simulations, otherwise use payload time or fallback to current
+      time: isBatchSimulation ? new Date() : (payload.time ? new Date(payload.time) : new Date()),
       rawLevel: payload.rawLevel,
       source: payload.source,
     };
@@ -79,7 +80,9 @@ export function AlertsProvider({ children }: { children: ReactNode }): JSX.Eleme
       // keep only the latest 50 alerts to limit memory
       while (next.size > 50) {
         const firstKey = next.keys().next().value;
-        next.delete(firstKey);
+        if (firstKey) {
+          next.delete(firstKey);
+        }
       }
       return next;
     });
@@ -113,7 +116,7 @@ export function AlertsProvider({ children }: { children: ReactNode }): JSX.Eleme
             console.log(
               `🔔 Dispatching simulated alert at ${alert.timestampSeconds.toFixed(1)}s: ${alert.alertName}`
             );
-            processAlertPayload(alert);
+            processAlertPayload(alert, true); // Pass true for isBatchSimulation
           }, delayMs);
 
           batchAlertsTimerRef.current.push(timerId);
