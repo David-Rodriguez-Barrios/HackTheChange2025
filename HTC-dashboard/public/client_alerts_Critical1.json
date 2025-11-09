@@ -18,82 +18,6 @@
   "alerts": [
     {
       "type": "priority_alert",
-      "id": "b300e29f-a99f-460c-942a-74dce465312b",
-      "alertName": "Suspicious activity in hallway",
-      "level": "MEDIUM",
-      "rawLevel": "DANGEROUS",
-      "location": "Video - 1.9s",
-      "url": "/Users/sunny/HackTheChange2025/backend/videos/Critical1.mp4",
-      "time": "2025-11-09T10:50:19.855899Z",
-      "source": "batch_analysis",
-      "frameNumber": 29,
-      "timestampSeconds": 1.9337169312169311,
-      "objects": [
-        "people",
-        "bags"
-      ],
-      "videoPath": "/Users/sunny/HackTheChange2025/backend/videos/Critical1.mp4",
-      "videoDuration": 75.615
-    },
-    {
-      "type": "priority_alert",
-      "id": "4fc26b13-81dc-4a4c-ac83-7c3ac72ea2ee",
-      "alertName": "Suspicious activity in the hallway, including two people walking together in an otherwise empty area",
-      "level": "MEDIUM",
-      "rawLevel": "DANGEROUS",
-      "location": "Video - 5.8s",
-      "url": "/Users/sunny/HackTheChange2025/backend/videos/Critical1.mp4",
-      "time": "2025-11-09T10:50:19.855903Z",
-      "source": "batch_analysis",
-      "frameNumber": 87,
-      "timestampSeconds": 5.801150793650794,
-      "objects": [
-        "Person 1",
-        "Person 2"
-      ],
-      "videoPath": "/Users/sunny/HackTheChange2025/backend/videos/Critical1.mp4",
-      "videoDuration": 75.615
-    },
-    {
-      "type": "priority_alert",
-      "id": "f96e7d78-9395-42d9-889e-1ad6fc06d3e8",
-      "alertName": "Two individuals appear to be engaged in suspicious activity in a public area based on the text overlay on the image.",
-      "level": "MEDIUM",
-      "rawLevel": "DANGEROUS",
-      "location": "Video - 9.7s",
-      "url": "/Users/sunny/HackTheChange2025/backend/videos/Critical1.mp4",
-      "time": "2025-11-09T10:50:19.855907Z",
-      "source": "batch_analysis",
-      "frameNumber": 145,
-      "timestampSeconds": 9.668584656084656,
-      "objects": [
-        "person1",
-        "person2"
-      ],
-      "videoPath": "/Users/sunny/HackTheChange2025/backend/videos/Critical1.mp4",
-      "videoDuration": 75.615
-    },
-    {
-      "type": "priority_alert",
-      "id": "686338ee-e879-46e6-b86b-510e385ed3d5",
-      "alertName": "Suspicious activity",
-      "level": "MEDIUM",
-      "rawLevel": "DANGEROUS",
-      "location": "Video - 11.6s",
-      "url": "/Users/sunny/HackTheChange2025/backend/videos/Critical1.mp4",
-      "time": "2025-11-09T10:50:19.855911Z",
-      "source": "batch_analysis",
-      "frameNumber": 174,
-      "timestampSeconds": 11.602301587301588,
-      "objects": [
-        "person",
-        "person"
-      ],
-      "videoPath": "/Users/sunny/HackTheChange2025/backend/videos/Critical1.mp4",
-      "videoDuration": 75.615
-    },
-    {
-      "type": "priority_alert",
       "id": "20797016-bef1-42a3-82af-3c56cc9c1e86",
       "alertName": "Multiple individuals engaged in physical altercation in public space",
       "level": "MEDIUM",
@@ -132,45 +56,6 @@
     },
     {
       "type": "priority_alert",
-      "id": "501a55c9-43e9-4da5-a8be-7f938cc82b6a",
-      "alertName": "Suspicious activity in building, possible break-in or criminal incident",
-      "level": "MEDIUM",
-      "rawLevel": "DANGEROUS",
-      "location": "Video - 21.3s",
-      "url": "/Users/sunny/HackTheChange2025/backend/videos/Critical1.mp4",
-      "time": "2025-11-09T10:50:19.855923Z",
-      "source": "batch_analysis",
-      "frameNumber": 319,
-      "timestampSeconds": 21.270886243386244,
-      "objects": [
-        "person1",
-        "person2"
-      ],
-      "videoPath": "/Users/sunny/HackTheChange2025/backend/videos/Critical1.mp4",
-      "videoDuration": 75.615
-    },
-    {
-      "type": "priority_alert",
-      "id": "feb5dae4-4245-4ad8-884a-49ed9becfb39",
-      "alertName": "Suspicious activity in a public area",
-      "level": "MEDIUM",
-      "rawLevel": "DANGEROUS",
-      "location": "Video - 27.1s",
-      "url": "/Users/sunny/HackTheChange2025/backend/videos/Critical1.mp4",
-      "time": "2025-11-09T10:50:19.855927Z",
-      "source": "batch_analysis",
-      "frameNumber": 406,
-      "timestampSeconds": 27.07203703703704,
-      "objects": [
-        "person",
-        "bags",
-        "miscellaneous objects"
-      ],
-      "videoPath": "/Users/sunny/HackTheChange2025/backend/videos/Critical1.mp4",
-      "videoDuration": 75.615
-    },
-    {
-      "type": "priority_alert",
       "id": "f7ce9ca7-be5d-4342-8cb4-937baca9aa80",
       "alertName": "Physical altercation between multiple individuals",
       "level": "MEDIUM",
@@ -183,45 +68,6 @@
       "timestampSeconds": 34.80690476190476,
       "objects": [
         "people"
-      ],
-      "videoPath": "/Users/sunny/HackTheChange2025/backend/videos/Critical1.mp4",
-      "videoDuration": 75.615
-    },
-    {
-      "type": "priority_alert",
-      "id": "e801e361-8a84-460b-98a1-8f296f99a458",
-      "alertName": "Possible altercation or suspicious activity observed in the CCTV footage",
-      "level": "MEDIUM",
-      "rawLevel": "DANGEROUS",
-      "location": "Video - 36.7s",
-      "url": "/Users/sunny/HackTheChange2025/backend/videos/Critical1.mp4",
-      "time": "2025-11-09T10:50:19.855935Z",
-      "source": "batch_analysis",
-      "frameNumber": 551,
-      "timestampSeconds": 36.74062169312169,
-      "objects": [
-        "people",
-        "bags"
-      ],
-      "videoPath": "/Users/sunny/HackTheChange2025/backend/videos/Critical1.mp4",
-      "videoDuration": 75.615
-    },
-    {
-      "type": "priority_alert",
-      "id": "c373da3d-80cd-4da3-87c7-dc60d9ba5a4b",
-      "alertName": "Multiple individuals engaged in confrontational behavior, possible altercation",
-      "level": "MEDIUM",
-      "rawLevel": "DANGEROUS",
-      "location": "Video - 38.7s",
-      "url": "/Users/sunny/HackTheChange2025/backend/videos/Critical1.mp4",
-      "time": "2025-11-09T10:50:19.855939Z",
-      "source": "batch_analysis",
-      "frameNumber": 580,
-      "timestampSeconds": 38.674338624338624,
-      "objects": [
-        "2 individuals",
-        "bags",
-        "trash on floor"
       ],
       "videoPath": "/Users/sunny/HackTheChange2025/backend/videos/Critical1.mp4",
       "videoDuration": 75.615
@@ -286,102 +132,6 @@
     },
     {
       "type": "priority_alert",
-      "id": "d80ef5eb-9446-40fd-898d-e46128c765d5",
-      "alertName": "Suspicious activity and possible escalation",
-      "level": "MEDIUM",
-      "rawLevel": "DANGEROUS",
-      "location": "Video - 46.4s",
-      "url": "/Users/sunny/HackTheChange2025/backend/videos/Critical1.mp4",
-      "time": "2025-11-09T10:50:19.855953Z",
-      "source": "batch_analysis",
-      "frameNumber": 696,
-      "timestampSeconds": 46.40920634920635,
-      "objects": [
-        "multiple individuals",
-        "bags/luggage"
-      ],
-      "videoPath": "/Users/sunny/HackTheChange2025/backend/videos/Critical1.mp4",
-      "videoDuration": 75.615
-    },
-    {
-      "type": "priority_alert",
-      "id": "9d6bcde0-4084-4cc8-b2ca-4edc8f920ff9",
-      "alertName": "Suspicious activity in the hallway",
-      "level": "MEDIUM",
-      "rawLevel": "DANGEROUS",
-      "location": "Video - 52.2s",
-      "url": "/Users/sunny/HackTheChange2025/backend/videos/Critical1.mp4",
-      "time": "2025-11-09T10:50:19.855957Z",
-      "source": "batch_analysis",
-      "frameNumber": 783,
-      "timestampSeconds": 52.21035714285714,
-      "objects": [
-        "people",
-        "backpack"
-      ],
-      "videoPath": "/Users/sunny/HackTheChange2025/backend/videos/Critical1.mp4",
-      "videoDuration": 75.615
-    },
-    {
-      "type": "priority_alert",
-      "id": "a8716063-bea8-4bef-8f0b-213d4f6b7a7d",
-      "alertName": "Suspicious activity",
-      "level": "MEDIUM",
-      "rawLevel": "DANGEROUS",
-      "location": "Video - 54.1s",
-      "url": "/Users/sunny/HackTheChange2025/backend/videos/Critical1.mp4",
-      "time": "2025-11-09T10:50:19.855961Z",
-      "source": "batch_analysis",
-      "frameNumber": 812,
-      "timestampSeconds": 54.14407407407408,
-      "objects": [
-        "people",
-        "bags"
-      ],
-      "videoPath": "/Users/sunny/HackTheChange2025/backend/videos/Critical1.mp4",
-      "videoDuration": 75.615
-    },
-    {
-      "type": "priority_alert",
-      "id": "deb7a635-af82-4365-8f63-5870db35ca7a",
-      "alertName": "Suspicious activity observed. A person is seen entering the facility with a bag, and there are scattered objects on the ground.",
-      "level": "MEDIUM",
-      "rawLevel": "DANGEROUS",
-      "location": "Video - 56.1s",
-      "url": "/Users/sunny/HackTheChange2025/backend/videos/Critical1.mp4",
-      "time": "2025-11-09T10:50:19.855964Z",
-      "source": "batch_analysis",
-      "frameNumber": 841,
-      "timestampSeconds": 56.077791005291004,
-      "objects": [
-        "person",
-        "bag",
-        "objects"
-      ],
-      "videoPath": "/Users/sunny/HackTheChange2025/backend/videos/Critical1.mp4",
-      "videoDuration": 75.615
-    },
-    {
-      "type": "priority_alert",
-      "id": "d7d0e425-0f49-4f9d-acd7-b18985189be8",
-      "alertName": "Suspicious activity detected, possible altercation or disturbance",
-      "level": "MEDIUM",
-      "rawLevel": "DANGEROUS",
-      "location": "Video - 58.0s",
-      "url": "/Users/sunny/HackTheChange2025/backend/videos/Critical1.mp4",
-      "time": "2025-11-09T10:50:19.855968Z",
-      "source": "batch_analysis",
-      "frameNumber": 870,
-      "timestampSeconds": 58.01150793650793,
-      "objects": [
-        "person",
-        "person"
-      ],
-      "videoPath": "/Users/sunny/HackTheChange2025/backend/videos/Critical1.mp4",
-      "videoDuration": 75.615
-    },
-    {
-      "type": "priority_alert",
       "id": "38e4d679-483d-4685-a27c-dbbbc616d1ab",
       "alertName": "Suspicious activity observed, including individuals lying on the floor potentially indicating a disturbance or altercation",
       "level": "MEDIUM",
@@ -395,25 +145,6 @@
       "objects": [
         "individuals",
         "bags"
-      ],
-      "videoPath": "/Users/sunny/HackTheChange2025/backend/videos/Critical1.mp4",
-      "videoDuration": 75.615
-    },
-    {
-      "type": "priority_alert",
-      "id": "f0ea03dc-e909-4c9b-b578-803f02eca6d4",
-      "alertName": "Suspicious activity observed in security camera footage",
-      "level": "MEDIUM",
-      "rawLevel": "DANGEROUS",
-      "location": "Video - 61.9s",
-      "url": "/Users/sunny/HackTheChange2025/backend/videos/Critical1.mp4",
-      "time": "2025-11-09T10:50:19.855975Z",
-      "source": "batch_analysis",
-      "frameNumber": 928,
-      "timestampSeconds": 61.878941798941796,
-      "objects": [
-        "person",
-        "object on floor"
       ],
       "videoPath": "/Users/sunny/HackTheChange2025/backend/videos/Critical1.mp4",
       "videoDuration": 75.615
@@ -472,43 +203,6 @@
       "objects": [
         "person",
         "unidentified objects"
-      ],
-      "videoPath": "/Users/sunny/HackTheChange2025/backend/videos/Critical1.mp4",
-      "videoDuration": 75.615
-    },
-    {
-      "type": "priority_alert",
-      "id": "743067d1-1693-4eb1-b179-7f5c15b317a2",
-      "alertName": "Suspicious activity",
-      "level": "MEDIUM",
-      "rawLevel": "DANGEROUS",
-      "location": "Video - 69.6s",
-      "url": "/Users/sunny/HackTheChange2025/backend/videos/Critical1.mp4",
-      "time": "2025-11-09T10:50:19.855990Z",
-      "source": "batch_analysis",
-      "frameNumber": 1044,
-      "timestampSeconds": 69.61380952380952,
-      "objects": [
-        "person"
-      ],
-      "videoPath": "/Users/sunny/HackTheChange2025/backend/videos/Critical1.mp4",
-      "videoDuration": 75.615
-    },
-    {
-      "type": "priority_alert",
-      "id": "238b1e30-afd2-4880-95fb-db6d397d4ed9",
-      "alertName": "Possible unsafe or suspicious activity observed in the camera footage",
-      "level": "MEDIUM",
-      "rawLevel": "DANGEROUS",
-      "location": "Video - 71.5s",
-      "url": "/Users/sunny/HackTheChange2025/backend/videos/Critical1.mp4",
-      "time": "2025-11-09T10:50:19.855993Z",
-      "source": "batch_analysis",
-      "frameNumber": 1073,
-      "timestampSeconds": 71.54752645502646,
-      "objects": [
-        "people",
-        "bag"
       ],
       "videoPath": "/Users/sunny/HackTheChange2025/backend/videos/Critical1.mp4",
       "videoDuration": 75.615
