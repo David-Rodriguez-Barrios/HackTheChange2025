@@ -1,51 +1,62 @@
 import { useEffect, useState } from "react";
 import "./PriorityAlerts.css"; // reuse the same visual theme
 
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
+
+interface Stream {
+    id: string;
+    url: string;
+}
+
 export function AllStreams() {
-    const [videos, _] = useState([
-        "/videos/stream1.mp4",
-        "/videos/stream2.mp4",
-        "/videos/stream3.mp4",
-        "/videos/stream4.mp4",
-        "/videos/stream5.mp4",
-        "/videos/stream6.mp4",
-        "/videos/stream7.mp4",
-        "/videos/stream8.mp4",
-    ]);
+    const [streams, setStreams] = useState<Stream[]>([]);
     const [page, setPage] = useState(0);
+    const [loading, setLoading] = useState(true);
 
     const videosPerPage = 4;
-    const totalPages = Math.ceil(videos.length / videosPerPage);
+    const totalPages = Math.ceil(streams.length / videosPerPage);
 
     useEffect(() => {
-        const interval = setInterval(async () => {
+        const fetchStreams = async () => {
             try {
-                await Promise.allSettled(
-                    videos.map(async (_: string) => {
-                        // TO DO: Add endpoint with the jpeg snapshot of the current one
-                        // Example: await fetch(`/api/video/update?path=${encodeURIComponent(v)}`)
-                    })
-                );
+                const response = await fetch(`${BACKEND_URL}/api/streams`);
+                const data = await response.json();
+                setStreams(data.streams || []);
             } catch (err) {
-                console.error("Error fetching stream updates:", err);
+                console.error("Error fetching streams:", err);
+            } finally {
+                setLoading(false);
             }
-        }, 2000);
+        };
 
+        fetchStreams();
+        
+        // Refresh streams every 30 seconds
+        const interval = setInterval(fetchStreams, 30000);
         return () => clearInterval(interval);
-    }, [videos]);
+    }, []);
 
-    const currentVideos = videos.slice(
+    const currentStreams = streams.slice(
         page * videosPerPage,
         (page + 1) * videosPerPage
     );
 
+    if (loading) {
+        return (
+            <div className="priority-alerts-panel">
+                <div style={{ padding: "20px", textAlign: "center" }}>
+                    Loading streams...
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="priority-alerts-panel">
             <div className="priority-alerts-header">
-                <h2>Live Streams</h2>
                 <div className="priority-alerts-stats">
                     <div className="stat-card stat-info">
-                        <div className="count">{videos.length}</div>
+                        <div className="count">{streams.length}</div>
                         <div className="label">Total Streams</div>
                     </div>
                     <div className="stat-card stat-warning">
@@ -55,51 +66,33 @@ export function AllStreams() {
                 </div>
             </div>
 
-            <div className="priority-alerts-scroll">
-                <div
-                    className="grid"
-                    style={{
-                        display: "grid",
-                        gridTemplateColumns: "1fr 1fr",
-                        gap: "12px",
-                        padding: "8px",
-                    }}
-                >
-                    {currentVideos.map((src, idx) => (
-                        <div
-                            key={idx}
-                            style={{
-                                background: "rgba(40,40,55,0.5)",
-                                border: "1px solid #2a2a3f",
-                                borderRadius: "10px",
-                                overflow: "hidden",
-                                position: "relative",
-                            }}
-                        >
-                            <video
-                                src={src}
-                                autoPlay
-                                loop
-                                muted
-                                playsInline
-                                className="w-full h-64 object-cover"
-                            />
-                        </div>
-                    ))}
-                </div>
+            <div className="priority-alerts-scroll streams-layout">
+                {streams.length === 0 ? (
+                    <div className="streams-empty">
+                        No streams available. Add videos to the backend/videos folder.
+                    </div>
+                ) : (
+                    <div className="streams-grid">
+                        {currentStreams.map((stream) => (
+                            <div key={stream.id} className="stream-card">
+                                <video
+                                    src={`${BACKEND_URL}/api/stream?streamId=${stream.id}`}
+                                    autoPlay
+                                    loop
+                                    muted
+                                    playsInline
+                                    className="stream-video"
+                                />
+                            </div>
+                        ))}
+                    </div>
+                )}
 
-                <div
-                    style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        marginTop: "8px",
-                    }}
-                >
+                <div className="streams-pagination">
                     <button
                         disabled={page === 0}
                         onClick={() => setPage((p) => p - 1)}
                         className="stat-card stat-info"
-                        style={{ flex: "0 0 48%" }}
                     >
                         Prev
                     </button>
@@ -107,7 +100,6 @@ export function AllStreams() {
                         disabled={page >= totalPages - 1}
                         onClick={() => setPage((p) => p + 1)}
                         className="stat-card stat-info"
-                        style={{ flex: "0 0 48%" }}
                     >
                         Next
                     </button>

@@ -1,0 +1,32 @@
+body {
+  margin: 0;
+}
+
+.landing-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
+  height: 100vh;
+  width: 100vw;
+  box-sizing: border-box;
+  background: #0f0f1a;
+  color: #fff;
+}
+
+.landing-main,
+.landing-sidebar {
+  display: flex;
+  flex-direction: column;
+}
+
+
+@media (max-width: 1200px) {
+  .landing-layout {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+
+  .landing-sidebar {
+    max-width: none;
+  }
+}
+
