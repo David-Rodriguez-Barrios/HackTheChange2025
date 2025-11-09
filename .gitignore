@@ -141,3 +141,9 @@ yolo/vids
 
 # gitignore venv files from all directories recursively
 **/venv/
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
