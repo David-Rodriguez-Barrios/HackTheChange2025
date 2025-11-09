@@ -20,3 +20,15 @@ Thumbs.db
 *.swo
 *~
 
+# Python virtual environment
+venv/
+env/
+.venv/
+
+# Python bytecode cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+

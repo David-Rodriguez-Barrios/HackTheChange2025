@@ -138,3 +138,10 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 yolo/vids
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
