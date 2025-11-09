@@ -14,7 +14,6 @@ import threading
 from io import BytesIO
 from PIL import Image
 import boto3
-from botocore.exceptions import ClientError
 
 # Load environment variables from .env file
 try:
@@ -82,7 +81,6 @@ CRITICAL: Weapons, violence, panic"""
         self.current_danger = 'NORMAL'
         self.current_reason = 'Starting analysis...'
         self.analysis_lock = threading.Lock()
-        self.analysis_queue = []
         self.analyzing = False
 
     def frame_to_base64(self, frame, quality=60):
@@ -180,7 +178,10 @@ CRITICAL: Weapons, violence, panic"""
             )
             
             response_body = json.loads(response['body'].read())
-            response_text = response_body['content'][0]['text'].strip()
+            if 'content' in response_body and len(response_body['content']) > 0:
+                response_text = response_body['content'][0].get('text', '').strip()
+            else:
+                return 'NORMAL', 'Invalid response format'
             
             # Clean and parse JSON
             if response_text.startswith('```json'):
@@ -270,7 +271,7 @@ CRITICAL: Weapons, violence, panic"""
             
             # Count alerts when analysis completes
             if frame_count > fps and not is_analyzing:  # After first second
-                alerts[display_danger] = alerts.get(display_danger, 0)
+                alerts[display_danger] = alerts.get(display_danger, 0) + 1
             
             # Draw results on frame
             color = self.get_color(display_danger)
